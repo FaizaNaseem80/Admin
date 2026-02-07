@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALK | Admin Studio</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Playfair+Display:italic,wght@700&display=swap');
+
+    body { 
+      font-family: 'Outfit', sans-serif; 
+      background-color: #020617; 
+      background-image: radial-gradient(circle at 100% 0%, rgba(79, 70, 229, 0.1) 0%, transparent 40%);
+      color: #cbd5e1;
+      min-height: 100vh;
+    }
+
+    .serif-title { font-family: 'Playfair Display', serif; }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .input-field {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .input-field:focus {
+      border-color: #6366f1;
+      background: rgba(255, 255, 255, 0.05);
+      outline: none;
+    }
+
+    .post-card {
+      border-left: 2px solid rgba(99, 102, 241, 0.3);
+      transition: transform 0.2s ease;
+    }
+    
+    .post-card:hover { transform: translateX(5px); }
+
+    /* Message Hub Styles */
+    .msg-bubble { max-width: 80%; padding: 0.75rem; border-radius: 1rem; font-size: 0.85rem; margin-bottom: 0.5rem; cursor: pointer; transition: all 0.2s; }
+    .msg-admin { background: #6366f1; color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .msg-user { background: rgba(255,255,255,0.05); color: #cbd5e1; align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }
+    .msg-user:hover { border-color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+  </style>
+</head>
+<body class="antialiased pb-20">
+
+  <nav class="p-6 flex justify-between items-center border-b border-white/5 mb-12">
+    <div class="flex items-center gap-3">
+      <div class="bg-indigo-600 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white">A</div>
+      <span class="font-bold tracking-widest text-xs uppercase text-indigo-400">Admin Studio</span>
+    </div>
+    <a href="index.html" class="text-xs text-slate-500 hover:text-white transition">View Live Garden →</a>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-6">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-12">
+      
+      <div class="lg:col-span-2">
+        <div class="sticky top-12 space-y-8">
+          <div>
+            <h2 class="serif-title text-3xl text-white mb-6">Plant a Thought</h2>
+            <form id="postForm" class="glass-panel p-6 rounded-3xl space-y-4">
+              <input type="text" id="heading" placeholder="Thought Title" class="input-field w-full p-3 rounded-xl text-white" required>
+              <textarea id="message" placeholder="What's on your mind?" rows="5" class="input-field w-full p-3 rounded-xl text-white" required></textarea>
+              <div class="grid grid-cols-2 gap-3">
+                <input type="date" id="date" class="input-field p-3 rounded-xl text-xs text-slate-400" required>
+                <input type="time" id="time" class="input-field p-3 rounded-xl text-xs text-slate-400" required>
+              </div>
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold p-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95">
+                Publish Reflection
+              </button>
+              <p id="status" class="text-center text-xs font-medium mt-2"></p>
+            </form>
+          </div>
+
+          <div>
+            <h2 class="serif-title text-3xl text-white mb-6">Message Hub</h2>
+            <div class="glass-panel rounded-3xl flex flex-col h-[400px]">
+              <div id="adminChatDisplay" class="flex-1 overflow-y-auto p-4 flex flex-col">
+                <p class="text-[10px] text-center text-slate-500 uppercase tracking-widest mt-4">Select a user message to reply</p>
+              </div>
+              <form id="adminReplyForm" class="p-4 border-t border-white/5 bg-black/20">
+                <p id="replyingTo" class="text-[9px] text-indigo-400 mb-2 uppercase font-bold tracking-tighter">No user selected</p>
+                <div class="flex gap-2">
+                  <input type="text" id="replyInput" placeholder="Reply..." class="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                  <button class="bg-indigo-600 text-white px-4 rounded-xl text-sm"><i class="fa-solid fa-paper-plane"></i></button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-3">
+        <h2 class="serif-title text-3xl text-white mb-6">Garden Logs</h2>
+        <div id="postsContainer" class="space-y-4"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBanQ6kJhkQimTUi6_oX1m3Sxgx0cI_WF8",
+      authDomain: "alk-ced65.firebaseapp.com",
+      projectId: "alk-ced65",
+      storageBucket: "alk-ced65.firebasestorage.app",
+      messagingSenderId: "1012596499542",
+      appId: "1:1012596499542:web:e6774a9ef0cb70fb4607f7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let selectedUserId = null;
+
+    // Auto-fill today's date/time
+    const now = new Date();
+    document.getElementById('date').value = now.toISOString().split('T')[0];
+    document.getElementById('time').value = now.toTimeString().slice(0,5);
+
+    // --- MESSAGE HUB LOGIC ---
+    db.collection('messages').orderBy('createdAt', 'asc').onSnapshot(snap => {
+      const container = document.getElementById('adminChatDisplay');
+      container.innerHTML = '';
+      snap.forEach(doc => {
+        const d = doc.data();
+        const isAdmin = d.senderId === 'ADMIN';
+        const bubble = document.createElement('div');
+        bubble.className = `msg-bubble ${isAdmin ? 'msg-admin' : 'msg-user'}`;
+        bubble.innerHTML = `
+          <span class="block text-[7px] opacity-60 mb-1">${isAdmin ? 'YOU' : 'USER: ' + d.senderId.slice(-4)}</span>
+          ${d.text}
+        `;
+        if(!isAdmin) {
+          bubble.onclick = () => {
+            selectedUserId = d.senderId;
+            document.getElementById('replyingTo').textContent = "Replying to: " + d.senderId.slice(-4);
+            document.getElementById('replyInput').focus();
+          };
+        }
+        container.appendChild(bubble);
+      });
+      container.scrollTop = container.scrollHeight;
+    });
+
+    document.getElementById('adminReplyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('replyInput');
+      if(!selectedUserId || !input.value.trim()) return;
+      
+      await db.collection('messages').add({
+        text: input.value.trim(),
+        senderId: 'ADMIN',
+        receiverId: selectedUserId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      input.value = '';
+    });
+
+    // --- POSTS LOGIC ---
+    document.getElementById('postForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const heading = document.getElementById('heading').value;
+      const message = document.getElementById('message').value;
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
+
+      try {
+        await db.collection('posts').add({
+          heading, message, date, time,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById('status').textContent = "Post added to the garden.";
+        document.getElementById('status').className = "text-center text-xs font-medium mt-2 text-emerald-400";
+        e.target.reset();
+      } catch (error) {
+        document.getElementById('status').textContent = "Error: " + error.message;
+      }
+    });
+
+    async function deletePost(id) {
+      if(confirm("Are you sure you want to remove this memory?")) {
+        await db.collection('posts').doc(id).delete();
+      }
+    }
+
+    function displayPost(doc) {
+      const data = doc.data();
+      const id = doc.id;
+      const card = document.createElement('div');
+      card.className = "glass-panel p-5 rounded-2xl post-card relative group";
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">${data.date}</span>
+            <h3 class="text-lg font-bold text-white">${data.heading}</h3>
+          </div>
+          <button onclick="deletePost('${id}')" class="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-rose-400 transition">
+            <i class="fa-regular fa-trash-can text-sm"></i>
+          </button>
+        </div>
+        <p class="text-slate-400 text-sm line-clamp-2 mb-4 font-light">${data.message}</p>
+        <div class="bg-black/20 rounded-xl p-3">
+          <p class="text-[10px] uppercase tracking-tighter text-slate-500 mb-2">Recent Reactions</p>
+          <div id="reactions-${id}" class="flex flex-wrap gap-2"></div>
+        </div>
+      `;
+      document.getElementById('postsContainer').appendChild(card);
+
+      db.collection('posts').doc(id).collection('reactions')
+        .orderBy('createdAt', 'desc').limit(5)
+        .onSnapshot(snap => {
+          const container = document.getElementById(`reactions-${id}`);
+          if(!container) return;
+          container.innerHTML = '';
+          snap.forEach(r => {
+            const span = document.createElement('span');
+            span.className = "text-[11px] bg-white/5 px-2 py-1 rounded text-slate-300";
+            span.textContent = r.data().message;
+            container.appendChild(span);
+          });
+        });
+    }
+
+    db.collection('posts').orderBy('createdAt', 'desc').onSnapshot(snap => {
+      document.getElementById('postsContainer').innerHTML = '';
+      snap.forEach(doc => displayPost(doc));
+    });
+  </script>
+</body>
+</html>
